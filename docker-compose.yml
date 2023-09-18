@@ -1,0 +1,73 @@
+version: '3.9'
+
+services:
+  budgetbee:
+    container_name: budgetbee
+    image: ghcr.io/budgetbee/budgetbee/api:latest
+    hostname: webserver
+    environment:
+      - DB_HOST=budgetbee-db
+      - DB_DATABASE=budgetbee
+      - DB_USERNAME=budgetbeeuser
+      - DB_PASSWORD=budgetbeepass
+    command: sh entrypoint.sh
+    security_opt:
+      - no-new-privileges:true
+    working_dir: /var/www/html
+    restart: unless-stopped
+    mem_limit: 1g
+    cpu_shares: 768
+    depends_on:
+      - db
+
+  web:
+    container_name: budgetbee-front
+    image: ghcr.io/budgetbee/budgetbee/web:latest
+    hostname: web
+    mem_limit: 2g
+    cpu_shares: 768
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  db:
+    container_name: mariadb
+    image: mariadb:latest
+    hostname: budgetbee-db
+    environment:
+      MARIADB_RANDOM_ROOT_PASSWORD: true
+      MARIADB_DATABASE: budgetbee
+      MARIADB_USER: budgetbeeuser
+      MARIADB_PASSWORD: budgetbeepass
+      TZ: Asia/Kuching
+    volumes:
+      - db_data:/var/lib/mysql:rw
+    restart: unless-stopped
+    mem_limit: 1g
+    cpu_shares: 768
+    security_opt:
+      - no-new-privileges:true
+
+  nginx:
+    container_name: budgetbee-nginx
+    image: ghcr.io/budgetbee/budgetbee/proxy:latest
+    hostname: nginx
+    ports:
+      - 8201:80
+    restart: on-failure:5
+    command: nginx -g "daemon off;"
+    mem_limit: 512m
+    cpu_shares: 768
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost
+    depends_on:
+      - budgetbee
+
+volumes:
+  db_data:
+
+# docker exec -it budgetbee sh
+# php artisan migrate --force
+# php scripts/create_user.php admin yourownemail mariushosting
